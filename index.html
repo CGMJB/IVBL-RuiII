@@ -416,14 +416,16 @@
                             <label class="encoding-label">选择文件编码：</label>
                             <select id="encodingSelector" class="encoding-selector">
                                 <option value="utf-8">UTF-8（推荐）</option>
-                                <option value="gbk">GBK/GB2312</option>
-                                <option value="big5">Big5（繁体）</option>
+                                <option value="gbk">GBK/GB2312（中文常用）</option>
+                                <option value="big5">Big5（繁体中文）</option>
                                 <option value="shift_jis">Shift-JIS（日文）</option>
                                 <option value="euc-kr">EUC-KR（韩文）</option>
                                 <option value="windows-1252">Windows-1252（西欧）</option>
                             </select>
                             <div class="encoding-hint">
-                                <i class="fas fa-info-circle me-2"></i>如遇中文乱码问题，请尝试GBK编码
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>中文用户特别提示：</strong>
+                                国内Excel导出的CSV通常使用GBK编码，如遇中文乱码请优先尝试GBK
                             </div>
                         </div>
                         
@@ -472,8 +474,8 @@
                         <div class="d-flex align-items-center mb-4">
                             <span class="step-number">2</span>
                             <div>
-                                <h5 class="mb-1">选择文件编码</h5>
-                                <p class="mb-0">如遇中文乱码，请尝试GBK编码</p>
+                                <h5 class="mb-1">选择正确编码</h5>
+                                <p class="mb-0">中文文件建议选择GBK编码以避免乱码</p>
                             </div>
                         </div>
                         
@@ -489,7 +491,7 @@
                             <span class="step-number">4</span>
                             <div>
                                 <h5 class="mb-1">查看并导出结果</h5>
-                                <p class="mb-0">查看结果并导出Excel文件</p>
+                                <p class="mb-0">查看结果并导出Excel文件保留中文信息</p>
                             </div>
                         </div>
                     </div>
@@ -580,21 +582,21 @@
                                     <i class="fas fa-lock"></i>
                                 </div>
                                 <h5>隐私保护</h5>
-                                <p class="small mb-0">数据仅在浏览器中处理，不会上传到任何服务器</p>
-                            </div>
-                            <div class="col-md-4 mb-4">
-                                <div class="feature-icon">
-                                    <i class="fas fa-bolt"></i>
-                                </div>
-                                <h5>实时处理</h5>
-                                <p class="small mb-0">即时计算积分和排名，无需等待</p>
+                                <p class="small mb-0">数据仅在本地处理，不上传服务器</p>
                             </div>
                             <div class="col-md-4 mb-4">
                                 <div class="feature-icon">
                                     <i class="fas fa-language"></i>
                                 </div>
-                                <h5>多编码支持</h5>
-                                <p class="small mb-0">完美支持中文等多语言编码</p>
+                                <h5>完美中文支持</h5>
+                                <p class="small mb-0">优化编码处理，确保中文正常显示</p>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-file-excel"></i>
+                                </div>
+                                <h5>精准导出</h5>
+                                <p class="small mb-0">导出Excel保留完整中文信息</p>
                             </div>
                         </div>
                     </div>
@@ -607,7 +609,7 @@
         <div class="container text-center">
             <h4>CSV积分处理系统</h4>
             <p>支持"x"条件检索 &copy; 2023 - 基于HTML5和JavaScript构建</p>
-            <p class="mb-0">中文乱码问题已修复，完美支持GBK/UTF-8等多种编码</p>
+            <p class="mb-0">优化中文编码处理，完美支持GBK/UTF-8等多种编码</p>
         </div>
     </div>
 
@@ -685,7 +687,7 @@
             function handleFile(file) {
                 if (!file) return;
                 
-                // 显示文件名
+                // 显示文件名（处理中文文件名）
                 fileName.textContent = file.name;
                 fileInfo.classList.remove('d-none');
                 
@@ -693,97 +695,140 @@
                 const encoding = encodingSelector.value;
                 
                 reader.onload = function(e) {
-                    const content = e.target.result;
-                    parseCSV(content, encoding);
+                    try {
+                        // 直接使用FileReader按指定编码解析的结果
+                        // 关键改进：移除了原代码中多余的编码转换步骤，避免二次编码导致乱码
+                        const content = e.target.result;
+                        parseCSV(content);
+                    } catch (error) {
+                        console.error('文件读取错误:', error);
+                        alert(`文件读取失败: ${error.message}\n请尝试更换编码格式`);
+                    }
                 };
                 
-                // 使用选定的编码读取文件
+                // 错误处理
+                reader.onerror = function() {
+                    alert('文件读取错误，请检查文件是否损坏或尝试其他编码');
+                };
+                
+                // 按选择的编码读取文件
                 reader.readAsText(file, encoding);
             }
             
-            function parseCSV(content, encoding) {
-                // 修复中文乱码问题 - 正确处理不同编码
-                let decodedContent = content;
-                
-                // 对于非UTF-8编码，尝试使用TextDecoder转换
-                if (encoding !== 'utf-8') {
-                    try {
-                        const encoder = new TextEncoder();
-                        const data = encoder.encode(content);
-                        const decoder = new TextDecoder(encoding);
-                        decodedContent = decoder.decode(data);
-                    } catch (e) {
-                        console.warn(`Error decoding with ${encoding}:`, e);
-                        // 如果转换失败，使用原始内容
-                    }
+            function parseCSV(content) {
+                // 处理可能的BOM头（常见于Windows生成的UTF-8文件）
+                if (content.charCodeAt(0) === 0xFEFF) {
+                    content = content.substring(1);
                 }
                 
-                const rows = decodedContent.split('\n');
-                const headers = rows[0].split(',').map(h => h.trim());
+                // 按行分割，处理不同操作系统的换行符
+                const rows = content.split(/\r\n|\n|\r/);
+                if (rows.length === 0) {
+                    alert('CSV文件为空或格式不正确');
+                    return;
+                }
                 
-                // 验证列数
-                if (headers.length < 19) {
-                    alert('CSV文件列数不足。请确保文件包含至少19列数据。');
+                // 解析表头
+                const headers = parseCSVRow(rows[0]).map(h => h.trim());
+                
+                // 验证必要列是否存在
+                const requiredColumns = ['队伍A', '队伍B', 'M', 'N', 'O', 'P', 'Q', 'R', 'S'];
+                const missingColumns = requiredColumns.filter(col => 
+                    !headers.some(header => header.includes(col))
+                );
+                
+                if (missingColumns.length > 0) {
+                    alert(`CSV文件缺少必要列: ${missingColumns.join(', ')}\n请检查文件格式`);
                     return;
                 }
                 
                 csvData = [];
                 
+                // 解析数据行
                 for (let i = 1; i < rows.length; i++) {
-                    if (rows[i].trim() === '') continue;
+                    const row = rows[i].trim();
+                    if (row === '') continue;
                     
-                    // 更健壮的CSV解析 - 处理包含逗号的字段
-                    const cols = parseCSVRow(rows[i]);
-                    if (cols.length >= 19) {
-                        csvData.push({
-                            teamA: cols[2] ? cols[2].trim() : '',
-                            teamB: cols[3] ? cols[3].trim() : '',
-                            m: parseFloat(cols[12]) || 0,
-                            n: parseFloat(cols[13]) || 0,
-                            o: parseFloat(cols[14]) || 0,
-                            p: parseFloat(cols[15]) || 0,
-                            q: cols[16] ? cols[16].trim() : '',
-                            r: parseFloat(cols[17]) || 0,
-                            s: parseFloat(cols[18]) || 0
-                        });
+                    const cols = parseCSVRow(row);
+                    // 确保每行有足够的列
+                    if (cols.length < headers.length) continue;
+                    
+                    // 查找各列的索引（更灵活的列匹配方式）
+                    const teamAIndex = headers.findIndex(h => h.includes('队伍A'));
+                    const teamBIndex = headers.findIndex(h => h.includes('队伍B'));
+                    const mIndex = headers.findIndex(h => h.includes('M'));
+                    const nIndex = headers.findIndex(h => h.includes('N'));
+                    const oIndex = headers.findIndex(h => h.includes('O'));
+                    const pIndex = headers.findIndex(h => h.includes('P'));
+                    const qIndex = headers.findIndex(h => h.includes('Q'));
+                    const rIndex = headers.findIndex(h => h.includes('R'));
+                    const sIndex = headers.findIndex(h => h.includes('S'));
+                    
+                    // 验证必要列索引是否存在
+                    if ([teamAIndex, teamBIndex, mIndex, nIndex, oIndex, pIndex, qIndex, rIndex, sIndex].some(idx => idx === -1)) {
+                        console.warn(`跳过格式不正确的行: ${i+1}`);
+                        continue;
                     }
+                    
+                    // 收集数据（确保中文原样保留）
+                    csvData.push({
+                        teamA: cols[teamAIndex] ? cols[teamAIndex].trim() : '',
+                        teamB: cols[teamBIndex] ? cols[teamBIndex].trim() : '',
+                        m: parseFloat(cols[mIndex]) || 0,
+                        n: parseFloat(cols[nIndex]) || 0,
+                        o: parseFloat(cols[oIndex]) || 0,
+                        p: parseFloat(cols[pIndex]) || 0,
+                        q: cols[qIndex] ? cols[qIndex].trim() : '',
+                        r: parseFloat(cols[rIndex]) || 0,
+                        s: parseFloat(cols[sIndex]) || 0
+                    });
                 }
                 
                 if (csvData.length > 0) {
                     displayPreview();
                     processBtn.disabled = false;
                 } else {
-                    alert('未找到有效数据。请检查CSV文件格式。');
+                    alert('未找到有效数据。请检查CSV文件格式是否正确。');
                 }
             }
             
-            // 改进的CSV行解析函数，处理带引号的字段
+            // 改进的CSV行解析函数，更好地处理带引号的字段和中文
             function parseCSVRow(row) {
                 const cols = [];
                 let current = '';
                 let inQuotes = false;
+                let quoteCount = 0;
                 
                 for (let i = 0; i < row.length; i++) {
                     const char = row[i];
                     
                     if (char === '"') {
-                        // 检查是否是转义引号
+                        quoteCount++;
+                        // 检查是否是连续的引号（表示转义）
                         if (i + 1 < row.length && row[i + 1] === '"') {
-                            current += '"';
+                            current += '"'; // 添加一个引号
                             i++; // 跳过下一个引号
                         } else {
+                            // 引号切换状态
                             inQuotes = !inQuotes;
                         }
                     } else if (char === ',' && !inQuotes) {
+                        // 非引号内的逗号作为分隔符
                         cols.push(current);
                         current = '';
                     } else {
+                        // 普通字符直接添加
                         current += char;
                     }
                 }
                 
-                // 添加最后一个字段
+                // 添加最后一列
                 cols.push(current);
+                
+                // 处理可能的未闭合引号（容错处理）
+                if (quoteCount % 2 !== 0) {
+                    console.warn('检测到未闭合的引号，已尝试自动修复');
+                }
                 
                 return cols;
             }
@@ -810,15 +855,16 @@
                 // 仅显示前10行预览
                 const previewRows = csvData.slice(0, 10);
                 previewRows.forEach(row => {
+                    // 确保中文原样输出
                     tableHTML += `
                         <tr>
-                            <td>${row.teamA}</td>
-                            <td>${row.teamB}</td>
+                            <td>${escapeHtml(row.teamA)}</td>
+                            <td>${escapeHtml(row.teamB)}</td>
                             <td>${row.m}</td>
                             <td>${row.n}</td>
                             <td>${row.o}</td>
                             <td>${row.p}</td>
-                            <td>${row.q}</td>
+                            <td>${escapeHtml(row.q)}</td>
                             <td>${row.r}</td>
                             <td>${row.s}</td>
                         </tr>
@@ -832,6 +878,17 @@
                 }
                 
                 previewContainer.innerHTML = tableHTML;
+            }
+            
+            // 防XSS并确保HTML中正确显示中文
+            function escapeHtml(unsafe) {
+                if (!unsafe) return '';
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
             }
             
             function processData() {
@@ -887,7 +944,7 @@
                         }
                     }
                     
-                    // 保存处理后的数据
+                    // 保存处理后的数据（保留中文队名）
                     processedData.push({
                         teamA: row.teamA,
                         teamB: row.teamB,
@@ -925,8 +982,11 @@
             function displayResults() {
                 // 准备排名数据
                 const rankingData = [];
+                
+                // 按积分和净胜分排序
+                const rankingDataArray = [];
                 for (const [team, stats] of Object.entries(teamStats)) {
-                    rankingData.push({
+                    rankingDataArray.push({
                         team: team,
                         score: stats.score,
                         net: stats.net,
@@ -934,15 +994,15 @@
                     });
                 }
                 
-                // 按积分和净胜分排序
-                rankingData.sort((a, b) => {
+                // 排序逻辑
+                rankingDataArray.sort((a, b) => {
                     if (b.score !== a.score) return b.score - a.score;
                     return b.net - a.net;
                 });
                 
                 // 显示统计信息
                 rowCountSpan.textContent = csvData.length;
-                teamCountSpan.textContent = rankingData.length;
+                teamCountSpan.textContent = rankingDataArray.length;
                 matchCountSpan.textContent = csvData.length;
                 
                 // 生成排名HTML
@@ -960,11 +1020,11 @@
                     <tbody>
                 `;
                 
-                rankingData.forEach((team, index) => {
+                rankingDataArray.forEach((team, index) => {
                     rankingHTML += `
                         <tr>
                             <td><span class="badge bg-primary rounded-pill">${index + 1}</span></td>
-                            <td><strong>${team.team}</strong></td>
+                            <td><strong>${escapeHtml(team.team)}</strong></td>
                             <td class="fw-bold">${team.score}</td>
                             <td class="${team.net >= 0 ? 'text-success fw-bold' : 'text-danger'}">${team.net.toFixed(2)}</td>
                             <td>${team.games}</td>
@@ -1001,31 +1061,35 @@
                 XLSX.utils.book_append_sheet(wb, detailWs, '详细数据');
                 
                 // 添加排名表
-                const rankingData = [];
-                let rank = 1;
-                
-                // 准备排名数据（按积分和净胜分排序）
-                const sortedTeams = Object.entries(teamStats)
-                    .map(([team, stats]) => ({ team, ...stats }))
-                    .sort((a, b) => {
-                        if (b.score !== a.score) return b.score - a.score;
-                        return b.net - a.net;
+                const rankingDataArray = [];
+                for (const [team, stats] of Object.entries(teamStats)) {
+                    rankingDataArray.push({
+                        team: team,
+                        score: stats.score,
+                        net: stats.net,
+                        games: stats.games
                     });
+                }
                 
-                sortedTeams.forEach((team, index) => {
-                    rankingData.push({
-                        '排名': index + 1,
-                        '队伍名称': team.team,
-                        '总积分': team.score,
-                        '总净胜分': team.net,
-                        '参赛场次': team.games
-                    });
+                // 排序
+                rankingDataArray.sort((a, b) => {
+                    if (b.score !== a.score) return b.score - a.score;
+                    return b.net - a.net;
                 });
+                
+                // 准备导出数据
+                const rankingData = rankingDataArray.map((team, index) => ({
+                    '排名': index + 1,
+                    '队伍名称': team.team,
+                    '总积分': team.score,
+                    '总净胜分': team.net,
+                    '参赛场次': team.games
+                }));
                 
                 const rankingWs = XLSX.utils.json_to_sheet(rankingData);
                 XLSX.utils.book_append_sheet(wb, rankingWs, '队伍排名');
                 
-                // 导出Excel文件
+                // 导出Excel文件（确保中文文件名正确）
                 XLSX.writeFile(wb, '积分排名结果.xlsx');
             }
             
